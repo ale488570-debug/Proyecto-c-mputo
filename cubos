@@ -1,0 +1,439 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Prueba de Construcción con Cubos - WISC
+Versión PsychoPy 2025.1.1
+Basado en el manual de administración y corrección
+"""
+
+from psychopy import visual, core, event, data, gui
+import random
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+from datetime import datetime
+
+class PruebaCubos:
+    def __init__(self):
+        # Configuración inicial
+        self.configurar_ventana()
+        self.configurar_estímulos()
+        self.datos_participante = {}
+        self.resultados = []
+        self.tiempos = []
+
+    def configurar_ventana(self):
+        """Configura la ventana principal del experimento"""
+        self.win = visual.Window(
+            size=[1200, 800],
+            units='pix',
+            fullscr=False,
+            color='gray',
+            winType='pyglet',
+            allowGUI=True
+        )
+
+    def configurar_estímulos(self):
+        """Configura todos los estímulos visuales"""
+        self.instrucciones_text = visual.TextStim(
+            self.win, text='', height=24, color='white', wrapWidth=1000
+        )
+        self.feedback_text = visual.TextStim(
+            self.win, text='', height=30, color='white'
+        )
+        self.tiempo_text = visual.TextStim(
+            self.win, text='', height=20, color='yellow', pos=(0, -300)
+        )
+
+    def obtener_datos_participante(self):
+        """Dialogo para obtener información del participante"""
+        info_dialog = gui.Dlg(title="Prueba de Construcción con Cubos - WISC")
+        info_dialog.addField('ID del Participante:')
+        info_dialog.addField('Edad:', 25)
+        info_dialog.addField('Género:', choices=['Masculino', 'Femenino', 'Otro/Prefiero no decir'])
+        info_dialog.addField('Evaluador:')
+
+        if info_dialog.show() == False:
+            core.quit()
+
+        self.datos_participante = {
+            'id': info_dialog.data[0],
+            'edad': info_dialog.data[1],
+            'genero': info_dialog.data[2],
+            'evaluador': info_dialog.data[3],
+            'fecha': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+    def mostrar_instrucciones_generales(self):
+        """Muestra las instrucciones generales de la prueba"""
+        instrucciones = """
+PRUEBA DE CONSTRUCCIÓN CON CUBOS - WISC
+
+Instrucciones:
+
+En esta prueba verás diseños de cubos que deberás reproducir.
+Algunos cubos son completamente rojos, otros completamente blancos,
+y otros tienen mitad rojo y mitad blanco.
+
+• Trabaja lo más RÁPIDO y PRECISO que puedas.
+• Debes fijarte solo en las caras superiores de los cubos.
+• Los diseños deben quedar exactamente iguales al modelo.
+
+El examinador te indicará cuándo comenzar cada diseño.
+
+Presiona la BARRA ESPACIADORA para continuar...
+        """
+
+        self.instrucciones_text.text = instrucciones
+        self.instrucciones_text.draw()
+        self.win.flip()
+        event.waitKeys(keyList=['space'])
+
+    def determinar_item_inicio(self):
+        """Determina el ítem de inicio según la edad"""
+        edad = self.datos_participante['edad']
+        if 6 <= edad <= 7:
+            return 1
+        else:  # 8-16 años
+            return 3
+
+    def simular_construccion_cubos(self, item_num, tiempo_limite):
+        """
+        Simula la construcción de cubos (en una implementación real,
+        aquí se integraría con un sistema de tracking de cubos físicos)
+        """
+        # Diseños de ejemplo para cada ítem
+        diseños = {
+            1: "Diseño simple de 2 cubos",
+            2: "Diseño de 4 cubos - cuadrado",
+            3: "Diseño de 4 cubos - línea",
+            4: "Diseño de 4 cubos - patrón 1",
+            5: "Diseño de 4 cubos - patrón 2",
+            6: "Diseño de 4 cubos - rombo",
+            7: "Diseño de 4 cubos - patrón 3",
+            8: "Diseño de 4 cubos - patrón 4",
+            9: "Diseño de 4 cubos - patrón 5",
+            10: "Diseño de 9 cubos - cuadrado grande",
+            11: "Diseño de 9 cubos - rombo grande",
+            12: "Diseño de 9 cubos - X grande",
+            13: "Diseño de 9 cubos - patrón complejo"
+        }
+
+        instruccion_item = f"""
+ÍTEM {item_num}
+
+Diseño a reproducir: {diseños.get(item_num, "Diseño estándar")}
+
+Tiempo límite: {tiempo_limite} segundos
+
+Presiona:
+• FLECHA ARRIBA si lograste el diseño CORRECTAMENTE
+• FLECHA ABAJO si NO lograste el diseño
+• ESC para salir de la prueba
+        """
+
+        self.instrucciones_text.text = instruccion_item
+        self.instrucciones_text.draw()
+
+        # Mostrar tiempo restante
+        timer = core.CountdownTimer(tiempo_limite)
+        while timer.getTime() > 0:
+            tiempo_restante = timer.getTime()
+            self.tiempo_text.text = f"Tiempo restante: {tiempo_restante:.1f} segundos"
+
+            self.instrucciones_text.draw()
+            self.tiempo_text.draw()
+            self.win.flip()
+
+            # Verificar respuesta
+            keys = event.getKeys(keyList=['up', 'down', 'escape'])
+            if keys:
+                if keys[0] == 'up':
+                    return {'correcto': True, 'tiempo_usado': tiempo_limite - tiempo_restante}
+                elif keys[0] == 'down':
+                    return {'correcto': False, 'tiempo_usado': tiempo_limite - tiempo_restante}
+                elif keys[0] == 'escape':
+                    return {'escape': True}
+
+        # Tiempo agotado
+        return {'correcto': False, 'tiempo_usado': tiempo_limite, 'tiempo_agotado': True}
+
+    def calcular_puntaje_item(self, item_num, resultado, intento=1):
+        """Calcula el puntaje para cada ítem según las reglas del WISC"""
+        if not resultado['correcto']:
+            return 0
+
+        # Ítems 1-3 (con intentos)
+        if 1 <= item_num <= 3:
+            if intento == 1:
+                return 2
+            elif intento == 2:
+                return 1
+
+        # Ítems 4-9 (puntaje fijo)
+        elif 4 <= item_num <= 9:
+            return 4
+
+        # Ítems 10-13 (con bonificación por tiempo)
+        elif 10 <= item_num <= 13:
+            tiempo = resultado['tiempo_usado']
+            if tiempo <= 30:
+                return 7
+            elif tiempo <= 50:
+                return 6
+            elif tiempo <= 70:
+                return 5
+            else:
+                return 4
+
+        return 0
+
+    def administrar_prueba(self):
+        """Administra toda la secuencia de la prueba"""
+        item_inicio = self.determinar_item_inicio()
+        items_administrar = list(range(item_inicio, 14))
+
+        criterio_suspension = 0
+
+        for item_num in items_administrar:
+            if criterio_suspension >= 2:
+                break
+
+            # Determinar tiempo límite según el ítem
+            if item_num <= 3:
+                tiempo_limite = 30
+            elif item_num <= 5:
+                tiempo_limite = 45
+            elif item_num <= 9:
+                tiempo_limite = 75
+            else:
+                tiempo_limite = 120
+
+            # Ítems 1-3 tienen dos intentos
+            if item_num <= 3:
+                for intento in [1, 2]:
+                    resultado = self.simular_construccion_cubos(item_num, tiempo_limite)
+
+                    if 'escape' in resultado:
+                        return
+
+                    puntaje = self.calcular_puntaje_item(item_num, resultado, intento)
+
+                    # Guardar resultados
+                    self.resultados.append({
+                        'item': item_num,
+                        'intento': intento,
+                        'correcto': resultado['correcto'],
+                        'tiempo_usado': resultado['tiempo_usado'],
+                        'puntaje': puntaje
+                    })
+
+                    # Mostrar feedback
+                    if resultado['correcto']:
+                        self.feedback_text.text = "¡Correcto! Bien hecho."
+                        self.feedback_text.color = 'green'
+                        criterio_suspension = 0  # Reiniciar criterio de suspensión
+                        break  # Pasar al siguiente ítem si es correcto
+                    else:
+                        self.feedback_text.text = "Inténtalo de nuevo." if intento == 1 else "Continuemos con el siguiente."
+                        self.feedback_text.color = 'orange'
+
+                # Actualizar criterio de suspensión
+                if puntaje == 0:
+                    criterio_suspension += 1
+                else:
+                    criterio_suspension = 0
+
+            else:  # Ítems 4-13 (un solo intento)
+                resultado = self.simular_construccion_cubos(item_num, tiempo_limite)
+
+                if 'escape' in resultado:
+                    return
+
+                puntaje = self.calcular_puntaje_item(item_num, resultado)
+
+                self.resultados.append({
+                    'item': item_num,
+                    'intento': 1,
+                    'correcto': resultado['correcto'],
+                    'tiempo_usado': resultado['tiempo_usado'],
+                    'puntaje': puntaje
+                })
+
+                # Actualizar criterio de suspensión
+                if puntaje == 0:
+                    criterio_suspension += 1
+                else:
+                    criterio_suspension = 0
+
+            # Mostrar feedback entre ítems
+            self.feedback_text.draw()
+            self.win.flip()
+            core.wait(1)
+
+    def calcular_puntajes_totales(self):
+        """Calcula todos los puntajes de la prueba"""
+        if not self.resultados:
+            return {}
+
+        df = pd.DataFrame(self.resultados)
+
+        # Puntaje bruto total (con bonificación)
+        puntaje_bruto_total = df['puntaje'].sum()
+
+        # Puntaje sin bonificación
+        df_sin_bonificacion = df.copy()
+        df_sin_bonificacion['puntaje_sin_bonif'] = df_sin_bonificacion.apply(
+            lambda x: min(x['puntaje'], 4) if x['item'] >= 10 else x['puntaje'], axis=1
+        )
+        puntaje_sin_bonificacion = df_sin_bonificacion['puntaje_sin_bonif'].sum()
+
+        # Porcentaje de aciertos
+        items_unicos = df.groupby('item')['correcto'].max()
+        porcentaje_aciertos = (items_unicos.sum() / len(items_unicos)) * 100
+
+        # Tiempo promedio por ítem
+        tiempo_promedio = df['tiempo_usado'].mean()
+
+        return {
+            'puntaje_bruto_total': puntaje_bruto_total,
+            'puntaje_sin_bonificacion': puntaje_sin_bonificacion,
+            'porcentaje_aciertos': porcentaje_aciertos,
+            'tiempo_promedio': tiempo_promedio,
+            'total_items': len(items_unicos),
+            'items_correctos': items_unicos.sum()
+        }
+
+    def generar_graficos_resultados(self, puntajes):
+        """Genera gráficos con los resultados de la prueba"""
+        if not self.resultados:
+            return
+
+        df = pd.DataFrame(self.resultados)
+
+        # Crear figura con subgráficos
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        fig.suptitle(f'Resultados Prueba de Cubos - Participante: {self.datos_participante["id"]}',
+                    fontsize=16, fontweight='bold')
+
+        # Gráfico 1: Puntaje por ítem
+        items_unicos = df.groupby('item')['puntaje'].max()
+        ax1.bar(items_unicos.index, items_unicos.values, color='skyblue', alpha=0.7)
+        ax1.set_title('Puntaje por Ítem')
+        ax1.set_xlabel('Ítem')
+        ax1.set_ylabel('Puntaje')
+        ax1.grid(True, alpha=0.3)
+
+        # Gráfico 2: Tiempo usado por ítem
+        tiempo_por_item = df.groupby('item')['tiempo_usado'].max()
+        ax2.bar(tiempo_por_item.index, tiempo_por_item.values, color='lightcoral', alpha=0.7)
+        ax2.set_title('Tiempo Usado por Ítem')
+        ax2.set_xlabel('Ítem')
+        ax2.set_ylabel('Tiempo (segundos)')
+        ax2.grid(True, alpha=0.3)
+
+        # Gráfico 3: Resumen de puntajes
+        categorias = ['Bruto Total', 'Sin Bonificación']
+        valores = [puntajes['puntaje_bruto_total'], puntajes['puntaje_sin_bonificacion']]
+        ax3.bar(categorias, valores, color=['lightgreen', 'lightblue'])
+        ax3.set_title('Comparación de Puntajes')
+        ax3.set_ylabel('Puntaje')
+        for i, v in enumerate(valores):
+            ax3.text(i, v + 0.5, str(v), ha='center', va='bottom')
+
+        # Gráfico 4: Porcentaje de aciertos
+        labels = ['Correctos', 'Incorrectos']
+        sizes = [puntajes['porcentaje_aciertos'], 100 - puntajes['porcentaje_aciertos']]
+        colors = ['lightgreen', 'lightcoral']
+        ax4.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+        ax4.set_title('Porcentaje de Aciertos')
+
+        plt.tight_layout()
+
+        # Guardar gráfico
+        if not os.path.exists('resultados'):
+            os.makedirs('resultados')
+
+        nombre_archivo = f"resultados/Resultados_Cubos_{self.datos_participante['id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        plt.savefig(nombre_archivo, dpi=300, bbox_inches='tight')
+        plt.show()
+
+        return nombre_archivo
+
+    def mostrar_resultados_finales(self, puntajes, archivo_grafico):
+        """Muestra los resultados finales en PsychoPy"""
+        resumen = f"""
+RESULTADOS FINALES - PRUEBA DE CONSTRUCCIÓN CON CUBOS
+
+Participante: {self.datos_participante['id']}
+Edad: {self.datos_participante['edad']} años
+Evaluador: {self.datos_participante['evaluador']}
+
+PUNTAJES:
+• Puntaje Bruto Total: {puntajes['puntaje_bruto_total']}/58
+• Puntaje Sin Bonificación: {puntajes['puntaje_sin_bonificacion']}/46
+• Porcentaje de Aciertos: {puntajes['porcentaje_aciertos']:.1f}%
+• Tiempo Promedio por Ítem: {puntajes['tiempo_promedio']:.1f} segundos
+• Ítems Correctos: {puntajes['items_correctos']}/{puntajes['total_items']}
+
+Los resultados gráficos se han guardado en:
+{archivo_grafico}
+
+Presiona ESPACIO para finalizar la prueba.
+        """
+
+        self.instrucciones_text.text = resumen
+        self.instrucciones_text.draw()
+        self.win.flip()
+        event.waitKeys(keyList=['space'])
+
+    def guardar_datos_completos(self, puntajes):
+        """Guarda todos los datos en archivos CSV"""
+        if not os.path.exists('data'):
+            os.makedirs('data')
+
+        # Guardar datos del participante
+        datos_participante_df = pd.DataFrame([self.datos_participante])
+
+        # Guardar resultados detallados
+        resultados_df = pd.DataFrame(self.resultados)
+
+        # Guardar puntajes totales
+        puntajes_df = pd.DataFrame([puntajes])
+
+        # Nombre base del archivo
+        nombre_base = f"data/Cubos_{self.datos_participante['id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Guardar archivos
+        datos_participante_df.to_csv(f"{nombre_base}_participante.csv", index=False)
+        resultados_df.to_csv(f"{nombre_base}_resultados.csv", index=False)
+        puntajes_df.to_csv(f"{nombre_base}_puntajes.csv", index=False)
+
+        print(f"Datos guardados en: {nombre_base}_*.csv")
+
+    def ejecutar_prueba_completa(self):
+        """Ejecuta la prueba completa"""
+        try:
+            self.obtener_datos_participante()
+            self.mostrar_instrucciones_generales()
+            self.administrar_prueba()
+
+            if self.resultados:
+                puntajes = self.calcular_puntajes_totales()
+                archivo_grafico = self.generar_graficos_resultados(puntajes)
+                self.mostrar_resultados_finales(puntajes, archivo_grafico)
+                self.guardar_datos_completos(puntajes)
+            else:
+                print("No se administraron ítems.")
+
+        except Exception as e:
+            print(f"Error durante la ejecución: {e}")
+        finally:
+            self.win.close()
+
+# Ejecutar la prueba
+if __name__ == "__main__":
+    prueba = PruebaCubos()
+    prueba.ejecutar_prueba_completa()
