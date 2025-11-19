@@ -1,0 +1,504 @@
+from psychopy import visual, core, event, gui, data
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+# Configuración de la ventana
+win = visual.Window(size=(1200, 800), color='white', units='pix')
+
+# Datos del evaluado
+info = gui.Dlg(title="Datos del Evaluado - Retención de Dígitos")
+info.addField('Edad:', '')
+info.addField('ID:', '')
+info.show()
+
+if info.OK:
+    edad = int(info.data[0])
+    id_evaluado = info.data[1]
+else:
+    core.quit()
+
+# Base de datos de secuencias
+secuencias = {
+    'directo': {
+        1: ['2-9', '5-4'],
+        2: ['3-9-6', '6-5-2'],
+        3: ['5-4-1-7', '9-1-6-8'],
+        4: ['8-2-1-9-6', '7-2-3-4-9'],
+        5: ['5-7-3-6-4-8', '3-8-4-1-7-5'],
+        6: ['2-1-8-9-4-3-7', '7-8-5-2-1-6-3'],
+        7: ['1-8-4-2-7-5-3-6', '2-7-9-6-3-1-4-8'],
+        8: ['7-2-6-1-9-4-8-3-5', '4-3-8-9-1-7-5-6-2'],
+        9: ['6-2-5-3-1-9-8-5-4-7', '9-4-3-8-7-5-2-9-6-1']
+    },
+    'inverso': {
+        'practica': ['9-4', '5-6'],
+        1: ['2-1', '1-3'],
+        2: ['3-9', '8-5'],
+        3: ['2-3-6', '5-4-1'],
+        4: ['4-5-8', '2-7-5'],
+        5: ['7-4-5-2', '9-3-8-6'],
+        6: ['2-1-7-9-4', '5-6-3-8-7'],
+        7: ['1-6-4-7-5-8', '6-3-7-2-9-1'],
+        8: ['8-1-5-2-4-3-6', '4-3-7-9-2-8-1'],
+        9: ['3-1-7-9-4-6-8-2', '9-8-1-6-3-2-4-7']
+    },
+    'secuenciados': {
+        'practica_A': ['3-1', '8-6'],
+        'practica_B': ['5-2-4', '4-3-3'],
+        1: ['4-1', '3-2'],
+        2: ['5-2-7', '1-8-6'],
+        3: ['7-5-8-1', '4-2-9-3'],
+        4: ['1-5-6-2-8', '2-8-4-7-9'],
+        5: ['3-3-6-1-5', '4-9-4-6-9'],
+        6: ['8-5-2-5-3-7', '6-1-4-7-9-3'],
+        7: ['9-7-9-6-2-6-8', '3-1-7-5-1-8-5'],
+        8: ['6-9-6-2-1-3-7-9', '1-4-8-5-4-8-7-4'],
+        9: ['2-5-7-7-4-8-7-5-2', '9-1-8-3-6-3-9-2-6']
+    }
+}
+
+# Respuestas correctas
+respuestas_correctas = {
+    'directo': {
+        1: ['2-9', '5-4'],
+        2: ['3-9-6', '6-5-2'],
+        3: ['5-4-1-7', '9-1-6-8'],
+        4: ['8-2-1-9-6', '7-2-3-4-9'],
+        5: ['5-7-3-6-4-8', '3-8-4-1-7-5'],
+        6: ['2-1-8-9-4-3-7', '7-8-5-2-1-6-3'],
+        7: ['1-8-4-2-7-5-3-6', '2-7-9-6-3-1-4-8'],
+        8: ['7-2-6-1-9-4-8-3-5', '4-3-8-9-1-7-5-6-2'],
+        9: ['6-2-5-3-1-9-8-5-4-7', '9-4-3-8-7-5-2-9-6-1']
+    },
+    'inverso': {
+        'practica': ['4-9', '6-5'],
+        1: ['1-2', '3-1'],
+        2: ['9-3', '5-8'],
+        3: ['6-3-2', '1-4-5'],
+        4: ['8-5-4', '5-7-2'],
+        5: ['2-5-4-7', '6-8-3-9'],
+        6: ['4-9-7-1-2', '7-8-3-6-5'],
+        7: ['8-5-7-4-6-1', '1-9-2-7-3-6'],
+        8: ['6-3-4-2-5-1-8', '1-8-2-9-7-3-4'],
+        9: ['2-8-6-4-9-7-1-3', '7-4-2-3-6-1-8-9']
+    },
+    'secuenciados': {
+        'practica_A': ['1-3', '6-8'],
+        'practica_B': ['2-4-5', '3-3-4'],
+        1: ['1-4', '2-3'],
+        2: ['2-5-7', '1-6-8'],
+        3: ['1-5-7-8', '2-3-4-9'],
+        4: ['1-2-5-6-8', '2-4-7-8-9'],
+        5: ['1-3-3-5-6', '4-4-6-9-9'],
+        6: ['2-3-5-5-7-8', '1-3-4-6-7-9'],
+        7: ['2-6-6-7-8-9-9', '1-1-3-5-5-7-8'],
+        8: ['1-2-3-6-6-7-9-9', '1-4-4-4-5-7-8-8'],
+        9: ['2-2-4-5-5-7-7-8', '1-2-3-3-6-6-8-9-9']
+    }
+}
+
+# Elementos visuales
+instrucciones = visual.TextStim(win, text='', color='black', height=24, wrapWidth=1000)
+secuencia_text = visual.TextStim(win, text='', color='blue', height=32, pos=(0, 100))
+respuesta_input = visual.TextBox2(win, pos=(0, -50), size=(600, 60), color='black', 
+                                lineColor='blue', text='', placeholder='Escriba los números aquí...')
+continuar_text = visual.TextStim(win, text='Presione ENTER para enviar respuesta | ESC para salir', 
+                               color='black', height=18, pos=(0, -150))
+temporizador_text = visual.TextStim(win, text='', color='red', height=20, pos=(0, -100))
+
+# Función para leer secuencia con timing
+def leer_secuencia(secuencia_str):
+    numeros = secuencia_str.split('-')
+    
+    for i, numero in enumerate(numeros):
+        secuencia_text.text = numero
+        secuencia_text.draw()
+        win.flip()
+        
+        # Un segundo por dígito, con inflexión en el último
+        if i == len(numeros) - 1:
+            core.wait(1.2)  # Pausa levemente más larga al final
+        else:
+            core.wait(0.8)  # Un segundo por dígito
+    
+    # Limpiar pantalla
+    secuencia_text.text = ""
+    secuencia_text.draw()
+    win.flip()
+
+# Función para verificar respuesta
+def verificar_respuesta(respuesta_usuario, respuesta_correcta, tipo_tarea):
+    # Normalizar respuestas (quitar espacios, hacer minúsculas)
+    usuario = respuesta_usuario.strip().replace(' ', '').replace('-', '')
+    correcta = respuesta_correcta.strip().replace(' ', '').replace('-', '')
+    
+    if tipo_tarea == 'directo':
+        return usuario == correcta
+    elif tipo_tarea == 'inverso':
+        return usuario == correcta
+    elif tipo_tarea == 'secuenciados':
+        # Para secuenciados, verificar que contenga los mismos números ordenados
+        usuario_sorted = ''.join(sorted(usuario))
+        correcta_sorted = ''.join(sorted(correcta))
+        return usuario_sorted == correcta_sorted
+    
+    return False
+
+# Función para administrar una tarea completa
+def administrar_tarea(tipo_tarea, resultados):
+    instrucciones_generales = {
+        'directo': "DÍGITOS EN ORDEN DIRECTO\n\nVoy a decir unos números. Escucha atentamente porque solo puedo decirlos una sola vez.\nCuando me detenga, tienes que repetir los números que te dije en el mismo orden.\nTienes que decir lo mismo que yo dije.\n\nPresiona ESPACIO para comenzar.",
+        'inverso': "DÍGITOS EN ORDEN INVERSO\n\nAhora voy a decir otros números, pero esta vez tienes que decírmelos al revés de como te los digo yo.\nRecuerda que debes esperar a que termine para que me des tu respuesta.\n\nPresiona ESPACIO para comenzar.",
+        'secuenciados': "DÍGITOS SECUENCIADOS\n\nAhora voy a decir más números, pero esta vez tienes que repetirlos en orden comenzando por el menor.\nRecuerda que tienes que repetirlos cuando yo termine de decirlos todos.\nEs posible que tengas que decir un mismo número más de una vez.\n\nPresiona ESPACIO para comenzar."
+    }
+    
+    instrucciones.text = instrucciones_generales[tipo_tarea]
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    # Ítems de práctica para inverso y secuenciados
+    if tipo_tarea in ['inverso', 'secuenciados']:
+        administrar_practica(tipo_tarea, resultados)
+    
+    # Administrar ítems principales
+    item_actual = 1
+    ceros_consecutivos_item = 0
+    
+    while item_actual <= 9 and ceros_consecutivos_item < 1:  # Suspensión después de un ítem completo con 0
+        puntaje_item = 0
+        
+        for intento in [1, 2]:
+            # Mostrar instrucción del ítem
+            instrucciones.text = f"Ítem {item_actual} - Intento {intento}\n\nEscucha atentamente..."
+            instrucciones.draw()
+            win.flip()
+            core.wait(2)
+            
+            # Leer secuencia
+            secuencia = secuencias[tipo_tarea][item_actual][intento-1] if tipo_tarea != 'inverso' or item_actual != 'practica' else secuencias[tipo_tarea]['practica'][intento-1]
+            leer_secuencia(secuencia)
+            
+            # Obtener respuesta
+            respuesta_input.text = ''
+            timer = core.Clock()
+            respuesta_recibida = False
+            
+            while timer.getTime() < 30 and not respuesta_recibida:
+                pregunta_text = visual.TextStim(win, text="¿Qué números escuchaste?", color='black', height=24, pos=(0, 50))
+                pregunta_text.draw()
+                respuesta_input.draw()
+                continuar_text.draw()
+                
+                tiempo_restante = 30 - int(timer.getTime())
+                temporizador_text.text = f"Tiempo: {tiempo_restante}s"
+                temporizador_text.draw()
+                
+                win.flip()
+                
+                keys = event.getKeys()
+                if 'return' in keys and respuesta_input.text.strip():
+                    respuesta_recibida = True
+                    break
+                if 'escape' in keys:
+                    return resultados
+            
+            # Verificar respuesta
+            respuesta_correcta = respuestas_correctas[tipo_tarea][item_actual][intento-1] if tipo_tarea != 'inverso' or item_actual != 'practica' else respuestas_correctas[tipo_tarea]['practica'][intento-1]
+            es_correcta = verificar_respuesta(respuesta_input.text, respuesta_correcta, tipo_tarea)
+            puntaje_intento = 1 if es_correcta else 0
+            puntaje_item += puntaje_intento
+            
+            # Registrar resultado
+            resultados.append({
+                'tarea': tipo_tarea,
+                'item': item_actual,
+                'intento': intento,
+                'secuencia': secuencia,
+                'respuesta_usuario': respuesta_input.text,
+                'respuesta_correcta': respuesta_correcta,
+                'puntaje': puntaje_intento,
+                'longitud': len(secuencia.split('-'))
+            })
+            
+            # Breve pausa entre intentos
+            if intento == 1:
+                instrucciones.text = "Preparando siguiente intento..."
+                instrucciones.draw()
+                win.flip()
+                core.wait(1)
+        
+        # Control de suspensión
+        if puntaje_item == 0:
+            ceros_consecutivos_item += 1
+        else:
+            ceros_consecutivos_item = 0
+        
+        item_actual += 1
+        
+        # Mensaje entre ítems
+        if item_actual <= 9 and ceros_consecutivos_item < 1:
+            instrucciones.text = "Continuemos con el siguiente ítem.\n\nPresiona ESPACIO para continuar."
+            instrucciones.draw()
+            win.flip()
+            event.waitKeys(keyList=['space'])
+    
+    return resultados
+
+# Función para ítems de práctica
+def administrar_practica(tipo_tarea, resultados):
+    if tipo_tarea == 'inverso':
+        practica_items = secuencias['inverso']['practica']
+        correctas = respuestas_correctas['inverso']['practica']
+        mensaje_correcto = "Eso es correcto."
+        mensaje_incorrecto = "Eso no es correcto. Dije {}, por lo que si me los dices al revés deberías haberme dicho {}."
+    else:  # secuenciados
+        practica_items = secuencias['secuenciados']['practica_A'] + secuencias['secuenciados']['practica_B']
+        correctas = respuestas_correctas['secuenciados']['practica_A'] + respuestas_correctas['secuenciados']['practica_B']
+        mensaje_correcto = "Eso es correcto."
+        mensaje_incorrecto = "Eso no es correcto. Dije {}, por lo que si me lo repites comenzando por el menor deberías haberme dicho {}."
+    
+    for i, secuencia in enumerate(practica_items):
+        instrucciones.text = f"Ítem de Práctica {i+1}\n\nEscucha atentamente..."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        leer_secuencia(secuencia)
+        
+        respuesta_input.text = ''
+        respuesta_recibida = False
+        timer = core.Clock()
+        
+        while timer.getTime() < 30 and not respuesta_recibida:
+            pregunta_text = visual.TextStim(win, text="¿Qué números escuchaste?", color='black', height=24, pos=(0, 50))
+            pregunta_text.draw()
+            respuesta_input.draw()
+            continuar_text.draw()
+            win.flap()
+            
+            keys = event.getKeys()
+            if 'return' in keys and respuesta_input.text.strip():
+                respuesta_recibida = True
+                break
+        
+        es_correcta = verificar_respuesta(respuesta_input.text, correctas[i], tipo_tarea)
+        
+        if es_correcta:
+            instrucciones.text = mensaje_correcto
+        else:
+            instrucciones.text = mensaje_incorrecto.format(secuencia, correctas[i])
+        
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+
+# Función para ítem de calificación (solo 6-7 años)
+def administrar_calificacion():
+    instrucciones.text = "Vamos a hacer un ejercicio primero.\nCuenta hasta 5 en voz alta para que pueda escucharte.\n\nPresiona ESPACIO cuando estés listo."
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    respuesta_input.text = ''
+    instrucciones.text = "Por favor, cuenta hasta 5:"
+    instrucciones.draw()
+    respuesta_input.draw()
+    continuar_text.draw()
+    win.flip()
+    
+    event.waitKeys(keyList=['return'])
+    
+    # Verificar si contó correctamente al menos hasta 3
+    respuesta = respuesta_input.text.strip()
+    try:
+        numeros = [int(x) for x in respuesta.split() if x.isdigit()]
+        if len(numeros) >= 3 and numeros[:3] == [1, 2, 3]:
+            return True
+    except:
+        pass
+    
+    return False
+
+# Función para mostrar gráfico de resultados
+def mostrar_grafico(resultados):
+    if not resultados:
+        return
+    
+    # Crear DataFrame
+    df = pd.DataFrame(resultados)
+    
+    # Calcular puntajes por tarea
+    puntajes_tarea = df.groupby('tarea')['puntaje'].sum()
+    max_longitud = df.groupby('tarea')['longitud'].max()
+    
+    # Gráfico 1: Puntajes por tarea
+    plt.figure(figsize=(12, 8))
+    
+    plt.subplot(2, 2, 1)
+    tareas = puntajes_tarea.index
+    puntajes = puntajes_tarea.values
+    colores = ['blue', 'green', 'orange']
+    bars = plt.bar(tareas, puntajes, color=colores, alpha=0.7)
+    plt.xlabel('Tarea')
+    plt.ylabel('Puntaje')
+    plt.title('Puntaje por Tarea')
+    plt.ylim(0, 18)
+    
+    # Agregar valores en las barras
+    for bar, puntaje in zip(bars, puntajes):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
+                f'{puntaje}', ha='center', va='bottom')
+    
+    # Gráfico 2: Progreso por longitud
+    plt.subplot(2, 2, 2)
+    for tarea in ['directo', 'inverso', 'secuenciados']:
+        tarea_data = df[df['tarea'] == tarea]
+        longitud_puntaje = tarea_data.groupby('longitud')['puntaje'].mean()
+        plt.plot(longitud_puntaje.index, longitud_puntaje.values, 'o-', label=tarea, linewidth=2)
+    
+    plt.xlabel('Longitud de Secuencia')
+    plt.ylabel('Puntaje Promedio')
+    plt.title('Dificultad por Longitud')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    # Gráfico 3: Distribución de aciertos
+    plt.subplot(2, 2, 3)
+    aciertos = len(df[df['puntaje'] == 1])
+    errores = len(df[df['puntaje'] == 0])
+    plt.pie([aciertos, errores], labels=['Aciertos', 'Errores'], autopct='%1.1f%%', colors=['lightgreen', 'lightcoral'])
+    plt.title('Distribución General')
+    
+    # Gráfico 4: Mayor secuencia por tarea
+    plt.subplot(2, 2, 4)
+    mayor_secuencia = {}
+    for tarea in ['directo', 'inverso', 'secuenciados']:
+        tarea_data = df[df['tarea'] == tarea]
+        # Encontrar la mayor longitud con al menos un acierto
+        longitudes_con_acierto = tarea_data[tarea_data['puntaje'] == 1]['longitud'].unique()
+        mayor_secuencia[tarea] = max(longitudes_con_acierto) if len(longitudes_con_acierto) > 0 else 0
+    
+    plt.bar(mayor_secuencia.keys(), mayor_secuencia.values(), color=['blue', 'green', 'orange'], alpha=0.7)
+    plt.xlabel('Tarea')
+    plt.ylabel('Mayor Secuencia Exitosa')
+    plt.title('Mayor Secuencia por Tarea')
+    
+    plt.tight_layout()
+    
+    # Guardar gráfico
+    filename = f'digitos_resultados_{id_evaluado}.png'
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    
+    # Mostrar en PsychoPy
+    try:
+        imagen = visual.ImageStim(win, image=filename)
+        imagen.draw()
+        win.flip()
+        
+        instrucciones.text = "Presione ESPACIO para continuar"
+        instrucciones.draw()
+        win.flip()
+        event.waitKeys(keyList=['space'])
+    except:
+        print("No se pudo cargar la imagen del gráfico")
+
+# Función principal
+def administrar_prueba_completa():
+    resultados = []
+    
+    # Mostrar instrucciones iniciales
+    instrucciones.text = """RETENCIÓN DE DÍGITOS
+
+Esta prueba evalúa tu capacidad para recordar secuencias de números de tres maneras diferentes:
+1. En el mismo orden (Directo)
+2. En orden inverso (Inverso)  
+3. Ordenados de menor a mayor (Secuenciados)
+
+Presiona ESPACIO para comenzar."""
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    # Ítem de calificación para 6-7 años
+    if 6 <= edad <= 7:
+        instrucciones.text = "Primero vamos a hacer un ejercicio de calificación."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        if not administrar_calificacion():
+            instrucciones.text = "No es posible continuar con la prueba completa.\nLa aplicación de dígitos secuenciados no puede realizarse.\n\nPresiona ESPACIO para salir."
+            instrucciones.draw()
+            win.flip()
+            event.waitKeys(keyList=['space'])
+            return []
+        
+        instrucciones.text = "¡Muy bien! Ahora continuaremos con la prueba completa.\n\nPresiona ESPACIO para continuar."
+        instrucciones.draw()
+        win.flip()
+        event.waitKeys(keyList=['space'])
+    
+    # Administrar las tres tareas
+    tareas = ['directo', 'inverso', 'secuenciados']
+    
+    for tarea in tareas:
+        resultados = administrar_tarea(tarea, resultados)
+        
+        if tarea != tareas[-1]:  # No mostrar para la última tarea
+            instrucciones.text = f"Tarea {tarea} completada.\n\nPreparando siguiente tarea...\n\nPresiona ESPACIO para continuar."
+            instrucciones.draw()
+            win.flip()
+            event.waitKeys(keyList=['space'])
+    
+    return resultados
+
+# Ejecutar prueba
+try:
+    resultados = administrar_prueba_completa()
+    
+    if resultados:
+        # Calcular estadísticas
+        df = pd.DataFrame(resultados)
+        puntaje_total = df['puntaje'].sum()
+        puntaje_directo = df[df['tarea'] == 'directo']['puntaje'].sum()
+        puntaje_inverso = df[df['tarea'] == 'inverso']['puntaje'].sum()
+        puntaje_secuenciados = df[df['tarea'] == 'secuenciados']['puntaje'].sum()
+        
+        # Mostrar resumen
+        instrucciones.text = f"""PRUEBA COMPLETADA
+
+Resultados Finales:
+- Puntaje Total: {puntaje_total}/54
+- Dígitos Directos: {puntaje_directo}/18
+- Dígitos Inversos: {puntaje_inverso}/18  
+- Dígitos Secuenciados: {puntaje_secuenciados}/18
+
+Presiona ESPACIO para ver el gráfico de resultados."""
+        instrucciones.draw()
+        win.flip()
+        event.waitKeys(keyList=['space'])
+        
+        # Mostrar gráfico
+        mostrar_grafico(resultados)
+        
+        # Guardar datos
+        df.to_csv(f'digitos_datos_{id_evaluado}.csv', index=False)
+        
+    else:
+        instrucciones.text = "Prueba interrumpida o no aplicable.\nNo se registraron resultados."
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+        
+except Exception as e:
+    print(f"Error: {e}")
+    instrucciones.text = f"Error durante la prueba: {e}\n\nPresiona cualquier tecla para salir."
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys()
+finally:
+    win.close()
+    core.quit()
