@@ -1,0 +1,459 @@
+from psychopy import visual, core, event, gui, data
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+from datetime import datetime
+
+# Configuración de la ventana
+win = visual.Window(size=(1200, 800), color='white', units='pix')
+
+# Datos del evaluado
+info = gui.Dlg(title="Datos del Evaluado - Claves")
+info.addField('Edad:', '')
+info.addField('ID:', '')
+info.addField('Mano dominante:', choices=['Derecha', 'Izquierda'])
+info.show()
+
+if info.OK:
+    edad = int(info.data[0])
+    id_evaluado = info.data[1]
+    mano_dominante = info.data[2]
+else:
+    core.quit()
+
+# Determinar forma según edad
+if 6 <= edad <= 7:
+    forma = 'A'
+    max_puntos = 75
+    simbolos = {
+        'círculo': '○',
+        'cuadrado': '□', 
+        'triángulo': '△',
+        'estrella': '☆',
+        'cruz': '✚'
+    }
+else:
+    forma = 'B'
+    max_puntos = 117
+    numeros_simbolos = {
+        '1': '—',
+        '2': 'Λ',
+        '3': '∨', 
+        '4': '⊂',
+        '5': '⊃',
+        '6': '∩',
+        '7': '∪',
+        '8': '○',
+        '9': '□'
+    }
+
+# Elementos visuales
+instrucciones = visual.TextStim(win, text='', color='black', height=24, wrapWidth=1000)
+ejemplo_text = visual.TextStim(win, text='', color='blue', height=20, pos=(0, 100), wrapWidth=1100)
+tiempo_text = visual.TextStim(win, text='', color='red', height=28, pos=(0, -200))
+continuar_text = visual.TextStim(win, text='Presione ESPACIO para continuar', color='black', height=20, pos=(0, -250))
+
+# Simular cuadernillo de respuestas (en implementación real sería una imagen)
+def mostrar_cuadernillo_practica(forma):
+    if forma == 'A':
+        contenido = """
+        FORMA A - PRÁCTICA
+        
+        FIGURAS DE REFERENCIA:
+        ○ círculo    □ cuadrado    △ triángulo    ☆ estrella    ✚ cruz
+        
+        ITEMS DE PRÁCTICA:
+        [○] [□] [△] [☆] [✚] [○] [□]
+        """
+    else:
+        contenido = """
+        FORMA B - PRÁCTICA
+        
+        CLAVE DE REFERENCIA:
+        1: —    2: Λ    3: ∨    4: ⊂    5: ⊃    6: ∩    7: ∪    8: ○    9: □
+        
+        ITEMS DE PRÁCTICA:
+        [2] [4] [1] [3] [5] [7] [6] [9] [8]
+        """
+    
+    ejemplo_text.text = contenido
+    ejemplo_text.draw()
+    instrucciones.draw()
+    win.flip()
+
+def mostrar_cuadernillo_prueba(forma):
+    if forma == 'A':
+        contenido = """
+        FORMA A - PRUEBA (120 segundos)
+        
+        FIGURAS DE REFERENCIA:
+        ○ círculo    □ cuadrado    △ triángulo    ☆ estrella    ✚ cruz
+        
+        ITEMS DE PRUEBA (filas de figuras):
+        [○] [□] [△] [☆] [✚] [○] [□] [△] [☆] [✚]
+        [○] [□] [△] [☆] [✚] [○] [□] [△] [☆] [✚]
+        [○] [□] [△] [☆] [✚] [○] [□] [△] [☆] [✚]
+        ... (continuar hasta 75 items)
+        """
+    else:
+        contenido = """
+        FORMA B - PRUEBA (120 segundos)
+        
+        CLAVE DE REFERENCIA:
+        1: —    2: Λ    3: ∨    4: ⊂    5: ⊃    6: ∩    7: ∪    8: ○    9: □
+        
+        ITEMS DE PRUEBA (filas de números):
+        [2] [4] [1] [3] [5] [7] [6] [9] [8] [2] [4] [1] [3]
+        [5] [7] [6] [9] [8] [2] [4] [1] [3] [5] [7] [6] [9]
+        ... (continuar hasta 117 items)
+        """
+    
+    ejemplo_text.text = contenido
+    ejemplo_text.draw()
+    tiempo_text.draw()
+    win.flip()
+
+# Función para administrar ítems de ejemplo
+def administrar_ejemplos(forma):
+    if forma == 'A':
+        instrucciones.text = "Vamos a ver algunos ejemplos primero.\nMira estas figuras. Cada figura tiene su propio símbolo."
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+        
+        mostrar_cuadernillo_practica('A')
+        core.wait(2)
+        
+        instrucciones.text = "Te mostraré cómo dibujar el símbolo correcto en cada figura..."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        # Ejemplo 1: Círculo
+        instrucciones.text = "Aquí hay un círculo. El círculo tiene este símbolo ○, así que lo dibujo de esta forma."
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+        
+        # Ejemplo 2: Estrella
+        instrucciones.text = "Aquí hay una estrella. La estrella tiene este símbolo ☆, así que lo dibujo de esta forma."
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+        
+    else:  # Forma B
+        instrucciones.text = "Vamos a ver algunos ejemplos primero.\nCada número tiene su propio símbolo."
+        instrucciones.draw()
+        win.flip()
+        core.wait(3)
+        
+        mostrar_cuadernillo_practica('B')
+        core.wait(2)
+        
+        instrucciones.text = "Te mostraré cómo completar estos recuadros con los símbolos correctos..."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        # Ejemplo 1: Número 2
+        instrucciones.text = "Aquí hay un 2. El 2 tiene este símbolo Λ, así que lo dibujo aquí."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        # Ejemplo 2: Número 4
+        instrucciones.text = "Aquí hay un 4. El 4 tiene este símbolo ⊂, así que lo dibujo aquí."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+        
+        # Ejemplo 3: Número 1
+        instrucciones.text = "Aquí hay un 1. El 1 tiene este símbolo —, así que lo dibujo aquí."
+        instrucciones.draw()
+        win.flip()
+        core.wait(2)
+
+# Función para administrar ítems de práctica
+def administrar_practica(forma):
+    instrucciones.text = "Ahora practica tú. Completa estos ítems.\nDebes parar en la línea gruesa."
+    instrucciones.draw()
+    win.flip()
+    core.wait(3)
+    
+    mostrar_cuadernillo_practica(forma)
+    
+    instrucciones.text = "Presiona C cuando hayas completado la práctica\n(o presiona ESPACIO si necesitas ayuda)"
+    instrucciones.draw()
+    win.flip()
+    
+    # Simular práctica (en implementación real sería entrada de lápiz)
+    keys = event.waitKeys(keyList=['c', 'space'])
+    
+    if 'space' in keys:
+        # Ofrecer ayuda adicional
+        if forma == 'A':
+            instrucciones.text = "Recuerda: mira las figuras de arriba y dibuja el símbolo correspondiente.\n○ para círculo, □ para cuadrado, etc."
+        else:
+            instrucciones.text = "Recuerda: mira los números de arriba y dibuja el símbolo correspondiente.\n— para 1, Λ para 2, etc."
+        
+        instrucciones.draw()
+        win.flip()
+        core.wait(4)
+        
+        instrucciones.text = "Presiona C cuando termines la práctica"
+        instrucciones.draw()
+        win.flip()
+        event.waitKeys(keyList=['c'])
+    
+    # Verificar comprensión (simulada)
+    instrucciones.text = "¡Bien! Ahora sabes cómo hacerlo."
+    instrucciones.draw()
+    win.flip()
+    core.wait(2)
+
+# Función principal de la prueba
+def administrar_prueba(forma):
+    # Instrucciones finales
+    instrucciones.text = f"Ahora la prueba real.\nTienes 2 minutos (120 segundos).\nComienza aquí y sigue en orden, sin saltarte ninguno.\nTrabaja lo más rápido que puedas.\n\nPresiona ESPACIO cuando estés listo para comenzar."
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    # Mostrar cuadernillo de prueba
+    mostrar_cuadernillo_prueba(forma)
+    
+    # Iniciar temporizador
+    timer = core.Clock()
+    tiempo_transcurrido = 0
+    items_completados = 0
+    max_items = 75 if forma == 'A' else 117
+    
+    instrucciones.text = "¡EMPIEZA!"
+    instrucciones.draw()
+    win.flip()
+    core.wait(1)
+    
+    # Simular ejecución de la prueba (en implementación real sería entrada de lápiz)
+    instrucciones.text = "Presiona la BARRA ESPACIADORA para simular completar un ítem\nPresiona ESC para terminar antes de tiempo"
+    
+    while tiempo_transcurrido < 120 and items_completados < max_items:
+        tiempo_transcurrido = timer.getTime()
+        tiempo_restante = max(0, 120 - tiempo_transcurrido)
+        
+        tiempo_text.text = f"Tiempo: {int(tiempo_restante)} segundos | Items: {items_completados}/{max_items}"
+        
+        mostrar_cuadernillo_prueba(forma)
+        
+        keys = event.getKeys(keyList=['space', 'escape', 'return'])
+        
+        if 'space' in keys:
+            items_completados += 1
+        elif 'escape' in keys:
+            break
+        elif 'return' in keys:  # Simular completar 10 items rápidamente
+            items_completados = min(items_completados + 10, max_items)
+    
+    # Detener prueba
+    tiempo_final = min(tiempo_transcurrido, 120)
+    
+    if items_completados >= max_items:
+        instrucciones.text = f"¡Completaste todos los ítems!\nTiempo: {tiempo_final:.1f} segundos"
+    else:
+        instrucciones.text = f"Tiempo terminado.\nCompletaste {items_completados} de {max_items} ítems"
+    
+    instrucciones.draw()
+    win.flip()
+    core.wait(3)
+    
+    return items_completados, tiempo_final
+
+# Función para simular corrección (en implementación real usaría plantilla)
+def simular_correccion(items_completados, forma):
+    # Simular puntaje (en implementación real se compararía con plantilla)
+    # Suponer 85% de aciertos y algunos errores de rotación
+    puntaje_correctos = int(items_completados * 0.85)
+    errores_rotacion = int(items_completados * 0.10)
+    
+    return puntaje_correctos, errores_rotacion
+
+# Función para mostrar gráfico de resultados
+def mostrar_grafico(resultados, forma):
+    items_completados, tiempo, puntaje, errores_rotacion = resultados
+    
+    max_items = 75 if forma == 'A' else 117
+    eficiencia = (puntaje / tiempo) if tiempo > 0 else 0
+    
+    plt.figure(figsize=(14, 10))
+    
+    # Gráfico 1: Resumen general
+    plt.subplot(2, 3, 1)
+    categorias = ['Completados', 'Correctos', 'Errores Rotación']
+    valores = [items_completados, puntaje, errores_rotacion]
+    colores = ['lightblue', 'lightgreen', 'lightcoral']
+    
+    bars = plt.bar(categorias, valores, color=colores, alpha=0.7)
+    plt.ylabel('Cantidad')
+    plt.title('Resumen de Ejecución')
+    plt.ylim(0, max_items)
+    
+    # Agregar valores en las barras
+    for bar, valor in zip(bars, valores):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                f'{valor}', ha='center', va='bottom')
+    
+    # Gráfico 2: Tiempo y velocidad
+    plt.subplot(2, 3, 2)
+    metricas_tiempo = ['Tiempo usado', 'Tiempo máximo']
+    valores_tiempo = [tiempo, 120]
+    plt.bar(metricas_tiempo, valores_tiempo, color=['orange', 'gray'], alpha=0.7)
+    plt.ylabel('Segundos')
+    plt.title('Tiempo de Ejecución')
+    
+    # Gráfico 3: Porcentajes
+    plt.subplot(2, 3, 3)
+    labels = ['Correctos', 'Errores normales', 'Errores rotación', 'No intentados']
+    correctos_pct = (puntaje / max_items) * 100
+    errores_normales_pct = ((items_completados - puntaje - errores_rotacion) / max_items) * 100
+    errores_rotacion_pct = (errores_rotacion / max_items) * 100
+    no_intentados_pct = ((max_items - items_completados) / max_items) * 100
+    
+    sizes = [correctos_pct, errores_normales_pct, errores_rotacion_pct, no_intentados_pct]
+    colors = ['lightgreen', 'yellow', 'red', 'lightgray']
+    
+    plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    plt.title('Distribución de Resultados')
+    
+    # Gráfico 4: Velocidad de trabajo
+    plt.subplot(2, 3, 4)
+    items_por_minuto = (items_completados / tiempo * 60) if tiempo > 0 else 0
+    correctos_por_minuto = (puntaje / tiempo * 60) if tiempo > 0 else 0
+    
+    metricas_velocidad = ['Items/min', 'Correctos/min']
+    valores_velocidad = [items_por_minuto, correctos_por_minuto]
+    
+    plt.bar(metricas_velocidad, valores_velocidad, color=['blue', 'green'], alpha=0.7)
+    plt.ylabel('Items por minuto')
+    plt.title('Velocidad de Trabajo')
+    
+    # Gráfico 5: Progreso en el tiempo
+    plt.subplot(2, 3, 5)
+    # Simular progreso (en implementación real se tendrían datos de tiempo por ítem)
+    tiempo_puntos = np.linspace(0, min(tiempo, 120), 10)
+    progreso = np.interp(tiempo_puntos, [0, tiempo], [0, items_completados])
+    
+    plt.plot(tiempo_puntos, progreso, 'b-', linewidth=2, marker='o')
+    plt.axhline(y=max_items, color='r', linestyle='--', alpha=0.5, label='Máximo posible')
+    plt.xlabel('Tiempo (segundos)')
+    plt.ylabel('Items completados')
+    plt.title('Progreso en el Tiempo')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    # Gráfico 6: Comparación con máximo
+    plt.subplot(2, 3, 6)
+    categorias_comparacion = ['Alcanzado', 'Máximo posible']
+    valores_comparacion = [puntaje, max_items]
+    colores_comparacion = ['lightblue', 'lightgray']
+    
+    bars = plt.bar(categorias_comparacion, valores_comparacion, color=colores_comparacion, alpha=0.7)
+    plt.ylabel('Puntaje')
+    plt.title(f'Puntaje: {puntaje}/{max_items}')
+    
+    for bar, valor in zip(bars, valores_comparacion):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1, 
+                f'{valor}', ha='center', va='bottom')
+    
+    plt.tight_layout()
+    
+    # Guardar gráfico
+    filename = f'claves_resultados_{id_evaluado}.png'
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    
+    # Mostrar en PsychoPy
+    try:
+        imagen = visual.ImageStim(win, image=filename)
+        imagen.draw()
+        win.flip()
+        
+        instrucciones.text = "Presione ESPACIO para continuar"
+        instrucciones.draw()
+        win.flip()
+        event.waitKeys(keyList=['space'])
+    except:
+        print("No se pudo cargar la imagen del gráfico")
+
+# Función principal
+def administrar_prueba_completa():
+    # Mostrar instrucciones iniciales
+    instrucciones.text = f"""PRUEBA DE CLAVES - FORMA {forma}
+
+Esta prueba evalúa tu velocidad de procesamiento y coordinación visomotora.
+Tendrás que copiar símbolos según una clave de referencia.
+
+Presiona ESPACIO para comenzar con los ejemplos."""
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    # Administrar ejemplos
+    administrar_ejemplos(forma)
+    
+    # Administrar práctica
+    administrar_practica(forma)
+    
+    # Administrar prueba principal
+    items_completados, tiempo = administrar_prueba(forma)
+    
+    # Simular corrección
+    puntaje, errores_rotacion = simular_correccion(items_completados, forma)
+    
+    return items_completados, tiempo, puntaje, errores_rotacion
+
+# Ejecutar prueba
+try:
+    resultados = administrar_prueba_completa()
+    items_completados, tiempo, puntaje, errores_rotacion = resultados
+    
+    # Mostrar resumen
+    max_puntaje = 75 if forma == 'A' else 117
+    instrucciones.text = f"""RESULTADOS - CLAVES FORMA {forma}
+
+Items completados: {items_completados}/{max_puntaje}
+Tiempo utilizado: {tiempo:.1f} segundos
+Puntaje obtenido: {puntaje}/{max_puntaje}
+Errores de rotación: {errores_rotacion}
+
+Presiona ESPACIO para ver el gráfico detallado."""
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys(keyList=['space'])
+    
+    # Mostrar gráfico
+    mostrar_grafico(resultados, forma)
+    
+    # Guardar datos
+    datos = {
+        'id': id_evaluado,
+        'edad': edad,
+        'mano_dominante': mano_dominante,
+        'forma': forma,
+        'items_completados': items_completados,
+        'tiempo_segundos': tiempo,
+        'puntaje': puntaje,
+        'errores_rotacion': errores_rotacion,
+        'fecha': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    df = pd.DataFrame([datos])
+    df.to_csv(f'claves_datos_{id_evaluado}.csv', index=False)
+    
+except Exception as e:
+    print(f"Error: {e}")
+    instrucciones.text = f"Error durante la prueba: {e}\n\nPresiona cualquier tecla para salir."
+    instrucciones.draw()
+    win.flip()
+    event.waitKeys()
+finally:
+    win.close()
+    core.quit()
